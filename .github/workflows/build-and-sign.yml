@@ -1,4 +1,4 @@
-name: Build and Sign APK (Auto Keystore)
+name: Build and Sign APK
 
 on:
   push:
@@ -8,130 +8,48 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout código
       uses: actions/checkout@v4
-    
+
     - name: Configurar JDK 17
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-    
+
     - name: Configurar Gradle
       uses: gradle/actions/setup-gradle@v3
-    
-    - name: Preparar Gradle Wrapper
+
+    - name: Generar keystore y establecer variables de entorno
       run: |
-        if [ ! -f "gradlew" ]; then
-          echo "📦 Generando Gradle Wrapper..."
-          gradle wrapper
-        fi
-        chmod +x gradlew || true
-    
-    - name: Generar Keystore
-      run: |
-        echo "🔑 Generando keystore..."
+        # Generar keystore
         keytool -genkey -v \
           -keystore keystore.jks \
-          -alias mi-alias \
+          -alias upload \
           -keyalg RSA \
           -keysize 2048 \
           -validity 10000 \
           -storepass 123456 \
           -keypass 123456 \
           -dname "CN=Test, OU=Test, O=Test, L=Test, ST=Test, C=ES"
-        echo "✅ Keystore creado"
-    
-    - name: Parchear build.gradle correctamente
-      run: |
-        echo "📝 Configurando build.gradle..."
         
-        python3 << 'PYTHON'
-        import re
+        # Establecer variables de entorno que tu build.gradle.kts espera
+        echo "KEYSTORE_PATH=$PWD/keystore.jks" >> $GITHUB_ENV
+        echo "STORE_PASSWORD=123456" >> $GITHUB_ENV
+        echo "KEY_PASSWORD=123456" >> $GITHUB_ENV
         
-        with open('app/build.gradle', 'r') as f:
-            content = f.read()
-        
-        # Buscar el bloque android
-        android_match = re.search(r'android\s*\{', content)
-        
-        if android_match:
-            # Encontrar el cierre del bloque android
-            brace_count = 0
-            start_pos = android_match.end()
-            end_pos = start_pos
-            
-            for i, char in enumerate(content[start_pos:], start=start_pos):
-                if char == '{':
-                    brace_count += 1
-                elif char == '}':
-                    brace_count -= 1
-                    if brace_count == 0:
-                        end_pos = i
-                        break
-            
-            # Extraer contenido dentro de android
-            android_content = content[start_pos:end_pos]
-            
-            # Verificar si ya existe signingConfigs
-            if 'signingConfigs' not in android_content:
-                # Insertar signingConfigs después de android {
-                signing_config = '''
-        
-            signingConfigs {
-                release {
-                    storeFile file("keystore.jks")
-                    storePassword "123456"
-                    keyAlias "mi-alias"
-                    keyPassword "123456"
-                }
-            }
-        '''
-                # Buscar buildTypes dentro de android
-                build_types_match = re.search(r'buildTypes\s*\{', android_content)
-                if build_types_match:
-                    # Insertar antes de buildTypes
-                    insert_pos = start_pos + build_types_match.start()
-                    content = content[:insert_pos] + signing_config + content[insert_pos:]
-                else:
-                    # Insertar al final del bloque android
-                    content = content[:end_pos] + signing_config + content[end_pos:]
-                
-                # Asegurar que buildTypes use signingConfig
-                if 'signingConfig signingConfigs.release' not in content:
-                    content = content.replace(
-                        'buildTypes {',
-                        'buildTypes {\n            signingConfig signingConfigs.release'
-                    )
-                
-                with open('app/build.gradle', 'w') as f:
-                    f.write(content)
-                print("✅ signingConfigs añadido correctamente")
-            else:
-                print("✅ signingConfigs ya existe")
-        else:
-            print("❌ No se encontró el bloque android")
-            exit(1)
-        PYTHON
-    
+        echo "✅ Keystore creado y variables configuradas"
+
     - name: Compilar APK Release
       run: |
-        echo "🏗️ Compilando APK..."
-        ./gradlew assembleRelease || gradle assembleRelease
-        echo "✅ Compilación completada"
-    
+        chmod +x gradlew || true
+        ./gradlew assembleRelease
+
     - name: Subir APK firmada
       uses: actions/upload-artifact@v4
       with:
         name: app-release-signed
         path: app/build/outputs/apk/release/*.apk
         retention-days: 30
-
-    - name: Subir keystore (opcional)
-      uses: actions/upload-artifact@v4
-      with:
-        name: keystore-backup
-        path: keystore.jks
-        retention-days: 7
