@@ -1,4 +1,4 @@
-name: Build and Sign APK
+name: Build and Sign APK (Android 5+ / 32-bit)
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
     - name: Configurar Gradle
       uses: gradle/actions/setup-gradle@v3
 
-    - name: Generar keystore y establecer variables
+    - name: Generar keystore y variables
       run: |
         keytool -genkey -v \
           -keystore keystore.jks \
@@ -37,6 +37,89 @@ jobs:
         echo "STORE_PASSWORD=123456" >> $GITHUB_ENV
         echo "KEY_PASSWORD=123456" >> $GITHUB_ENV
 
+    - name: Configurar build.gradle.kts para Android 5+ y 32 bits
+      run: |
+        echo "📝 Configurando build.gradle.kts..."
+        
+        python3 << 'PYTHON'
+        import re
+        
+        with open('app/build.gradle.kts', 'r') as f:
+            content = f.read()
+        
+        # 1. Cambiar minSdk a 21 (Android 5.0)
+        content = re.sub(
+            r'minSdk\s*=\s*\d+',
+            'minSdk = 21',
+            content
+        )
+        
+        # 2. Asegurar targetSdk
+        content = re.sub(
+            r'targetSdk\s*=\s*\d+',
+            'targetSdk = 34',
+            content
+        )
+        
+        # 3. Agregar ABI splits para 32 y 64 bits
+        if 'splits {' not in content:
+            splits_config = '''
+        
+        splits {
+            abi {
+                isEnable = true
+                reset()
+                include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+                isUniversalApk = true
+            }
+        }
+        '''
+            # Insertar dentro del bloque android
+            android_match = re.search(r'android\s*\{', content)
+            if android_match:
+                end_pos = content.find('}', android_match.end())
+                # Buscar mejor posición (antes de buildTypes)
+                build_types = content.find('buildTypes', android_match.end())
+                if build_types != -1:
+                    content = content[:build_types] + splits_config + content[build_types:]
+                else:
+                    content = content[:end_pos] + splits_config + content[end_pos:]
+        
+        # 4. Agregar ndk abiFilters
+        default_config = re.search(r'defaultConfig\s*\{', content)
+        if default_config:
+            if 'ndk {' not in content:
+                ndk_config = '''
+                ndk {
+                    abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
+                }
+        '''
+                # Insertar dentro de defaultConfig
+                default_start = default_config.end()
+                default_end = content.find('}', default_start)
+                # Buscar cierre de defaultConfig
+                brace_count = 0
+                for i in range(default_start, len(content)):
+                    if content[i] == '{':
+                        brace_count += 1
+                    elif content[i] == '}':
+                        brace_count -= 1
+                        if brace_count == -1:
+                            default_end = i
+                            break
+                
+                content = content[:default_end] + ndk_config + content[default_end:]
+        
+        with open('app/build.gradle.kts', 'w') as f:
+            f.write(content)
+        print("✅ build.gradle.kts configurado para Android 5+ y 32 bits")
+        PYTHON
+
+    - name: Verificar configuración
+      run: |
+        echo "📋 Configuración actual:"
+        grep -E "(minSdk|targetSdk|ndk|abiFilters|splits)" app/build.gradle.kts || echo "⚠️ No se encontraron configuraciones"
+
     - name: Preparar Gradle Wrapper
       run: |
         if [ ! -f "gradlew" ]; then
@@ -45,12 +128,19 @@ jobs:
         fi
         chmod +x gradlew
 
-    - name: Compilar APK Release
+    - name: Compilar APK Release (todas las arquitecturas)
       run: ./gradlew assembleRelease
 
-    - name: Subir APK firmada
+    - name: Subir APK universal (compatible con 32 y 64 bits)
       uses: actions/upload-artifact@v4
       with:
-        name: app-release-signed
+        name: app-universal-release-signed
         path: app/build/outputs/apk/release/*.apk
+        retention-days: 30
+
+    - name: Subir APKs por arquitectura
+      uses: actions/upload-artifact@v4
+      with:
+        name: app-per-abi-release-signed
+        path: app/build/outputs/apk/release/app-*.apk
         retention-days: 30
