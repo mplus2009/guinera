@@ -30,9 +30,9 @@ jobs:
         fi
         chmod +x gradlew || true
     
-    - name: Generar Keystore automáticamente
+    - name: Generar Keystore
       run: |
-        echo "🔑 Generando keystore temporal..."
+        echo "🔑 Generando keystore..."
         keytool -genkey -v \
           -keystore keystore.jks \
           -alias mi-alias \
@@ -42,80 +42,85 @@ jobs:
           -storepass 123456 \
           -keypass 123456 \
           -dname "CN=Test, OU=Test, O=Test, L=Test, ST=Test, C=ES"
-        echo "✅ Keystore creado: keystore.jks"
-        echo "🔐 Contraseña: 123456"
-        echo "🔑 Alias: mi-alias"
+        echo "✅ Keystore creado"
     
-    - name: Parchear build.gradle para usar keystore
+    - name: Parchear build.gradle correctamente
       run: |
         echo "📝 Configurando build.gradle..."
         
-        # Buscar si existe signingConfigs
-        if grep -q "signingConfigs" app/build.gradle; then
-          echo "⚠️ signingConfigs encontrado, reemplazando..."
-          python3 << 'PYTHON'
+        python3 << 'PYTHON'
         import re
+        
         with open('app/build.gradle', 'r') as f:
             content = f.read()
         
-        # Reemplazar bloque signingConfigs
-        pattern = r'signingConfigs\s*\{[^}]*\}'
-        replacement = '''signingConfigs {
-            release {
-                storeFile file("keystore.jks")
-                storePassword "123456"
-                keyAlias "mi-alias"
-                keyPassword "123456"
+        # Buscar el bloque android
+        android_match = re.search(r'android\s*\{', content)
+        
+        if android_match:
+            # Encontrar el cierre del bloque android
+            brace_count = 0
+            start_pos = android_match.end()
+            end_pos = start_pos
+            
+            for i, char in enumerate(content[start_pos:], start=start_pos):
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        end_pos = i
+                        break
+            
+            # Extraer contenido dentro de android
+            android_content = content[start_pos:end_pos]
+            
+            # Verificar si ya existe signingConfigs
+            if 'signingConfigs' not in android_content:
+                # Insertar signingConfigs después de android {
+                signing_config = '''
+        
+            signingConfigs {
+                release {
+                    storeFile file("keystore.jks")
+                    storePassword "123456"
+                    keyAlias "mi-alias"
+                    keyPassword "123456"
+                }
             }
-        }'''
-        
-        content = re.sub(pattern, replacement, content, flags=re.DOTALL)
-        
-        # Asegurar que buildTypes use el signingConfig
-        if 'signingConfig signingConfigs.release' not in content:
-            content = content.replace(
-                'release {',
-                'release {\n            signingConfig signingConfigs.release'
-            )
-        
-        with open('app/build.gradle', 'w') as f:
-            f.write(content)
-        print("✅ build.gradle actualizado")
+        '''
+                # Buscar buildTypes dentro de android
+                build_types_match = re.search(r'buildTypes\s*\{', android_content)
+                if build_types_match:
+                    # Insertar antes de buildTypes
+                    insert_pos = start_pos + build_types_match.start()
+                    content = content[:insert_pos] + signing_config + content[insert_pos:]
+                else:
+                    # Insertar al final del bloque android
+                    content = content[:end_pos] + signing_config + content[end_pos:]
+                
+                # Asegurar que buildTypes use signingConfig
+                if 'signingConfig signingConfigs.release' not in content:
+                    content = content.replace(
+                        'buildTypes {',
+                        'buildTypes {\n            signingConfig signingConfigs.release'
+                    )
+                
+                with open('app/build.gradle', 'w') as f:
+                    f.write(content)
+                print("✅ signingConfigs añadido correctamente")
+            else:
+                print("✅ signingConfigs ya existe")
+        else:
+            print("❌ No se encontró el bloque android")
+            exit(1)
         PYTHON
-        else
-          echo "⚠️ No existe signingConfigs, añadiendo..."
-          cat >> app/build.gradle << 'GRADLE'
-
-        signingConfigs {
-            release {
-                storeFile file("keystore.jks")
-                storePassword "123456"
-                keyAlias "mi-alias"
-                keyPassword "123456"
-            }
-        }
-
-        buildTypes {
-            release {
-                signingConfig signingConfigs.release
-                minifyEnabled false
-                proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            }
-        }
-        GRADLE
-          echo "✅ signingConfigs añadido"
-        fi
     
     - name: Compilar APK Release
       run: |
         echo "🏗️ Compilando APK..."
         ./gradlew assembleRelease || gradle assembleRelease
         echo "✅ Compilación completada"
-    
-    - name: Verificar APK generada
-      run: |
-        echo "📂 Archivos generados:"
-        find app/build/outputs/apk -name "*.apk" -ls || echo "❌ No se encontraron APKs"
     
     - name: Subir APK firmada
       uses: actions/upload-artifact@v4
