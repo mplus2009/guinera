@@ -22,9 +22,8 @@ jobs:
     - name: Configurar Gradle
       uses: gradle/actions/setup-gradle@v3
 
-    - name: Generar keystore y establecer variables de entorno
+    - name: Generar keystore y establecer variables
       run: |
-        # Generar keystore
         keytool -genkey -v \
           -keystore keystore.jks \
           -alias upload \
@@ -34,18 +33,20 @@ jobs:
           -storepass 123456 \
           -keypass 123456 \
           -dname "CN=Test, OU=Test, O=Test, L=Test, ST=Test, C=ES"
-        
-        # Establecer variables de entorno que tu build.gradle.kts espera
         echo "KEYSTORE_PATH=$PWD/keystore.jks" >> $GITHUB_ENV
         echo "STORE_PASSWORD=123456" >> $GITHUB_ENV
         echo "KEY_PASSWORD=123456" >> $GITHUB_ENV
-        
-        echo "✅ Keystore creado y variables configuradas"
+
+    - name: Preparar Gradle Wrapper
+      run: |
+        if [ ! -f "gradlew" ]; then
+          echo "📦 Generando Gradle Wrapper..."
+          gradle wrapper
+        fi
+        chmod +x gradlew
 
     - name: Compilar APK Release
-      run: |
-        chmod +x gradlew || true
-        ./gradlew assembleRelease
+      run: ./gradlew assembleRelease
 
     - name: Subir APK firmada
       uses: actions/upload-artifact@v4
