@@ -1,0 +1,6 @@
+{
+  "name": "La Güinera",
+  "description": "App para la zona de la Güinera que muestra productos en venta y chats públicos por bloques en un mapa.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
