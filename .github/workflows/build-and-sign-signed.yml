@@ -1,4 +1,4 @@
-name: Build and Sign APK
+name: Build and Sign APK (con keystore local)
 
 on:
   push:
@@ -29,19 +29,15 @@ jobs:
         fi
         chmod +x gradlew || true
     
-    - name: Firmar APK con keystore del repo
+    - name: Firmar APK con keystore local
       uses: r0adkll/sign-android-release@v1
       id: sign_app
       with:
         releaseDirectory: app/build/outputs/apk/release
-        signingKeyBase64: $(base64 -w0 keystore.jks)
+        signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
         alias: mi-alias
         keyStorePassword: 123456
         keyPassword: 123456
-    
-    - name: Compilar y firmar APK
-      run: |
-        ./gradlew assembleRelease || gradle assembleRelease
     
     - name: Subir APK firmada
       uses: actions/upload-artifact@v4
