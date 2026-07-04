@@ -1,4 +1,4 @@
-name: Build and Sign APK
+name: Build and Sign APK (Auto Keystore)
 
 on:
   push:
@@ -22,29 +22,111 @@ jobs:
     - name: Configurar Gradle
       uses: gradle/actions/setup-gradle@v3
     
-    - name: Verificar gradlew
+    - name: Preparar Gradle Wrapper
       run: |
         if [ ! -f "gradlew" ]; then
+          echo "📦 Generando Gradle Wrapper..."
           gradle wrapper
         fi
         chmod +x gradlew || true
     
-    - name: Firmar APK con keystore del repo
-      uses: r0adkll/sign-android-release@v1
-      id: sign_app
-      with:
-        releaseDirectory: app/build/outputs/apk/release
-        signingKeyBase64: $(base64 -w0 keystore.jks)
-        alias: mi-alias
-        keyStorePassword: 123456
-        keyPassword: 123456
-    
-    - name: Compilar y firmar APK
+    - name: Generar Keystore automáticamente
       run: |
+        echo "🔑 Generando keystore temporal..."
+        keytool -genkey -v \
+          -keystore keystore.jks \
+          -alias mi-alias \
+          -keyalg RSA \
+          -keysize 2048 \
+          -validity 10000 \
+          -storepass 123456 \
+          -keypass 123456 \
+          -dname "CN=Test, OU=Test, O=Test, L=Test, ST=Test, C=ES"
+        echo "✅ Keystore creado: keystore.jks"
+        echo "🔐 Contraseña: 123456"
+        echo "🔑 Alias: mi-alias"
+    
+    - name: Parchear build.gradle para usar keystore
+      run: |
+        echo "📝 Configurando build.gradle..."
+        
+        # Buscar si existe signingConfigs
+        if grep -q "signingConfigs" app/build.gradle; then
+          echo "⚠️ signingConfigs encontrado, reemplazando..."
+          python3 << 'PYTHON'
+        import re
+        with open('app/build.gradle', 'r') as f:
+            content = f.read()
+        
+        # Reemplazar bloque signingConfigs
+        pattern = r'signingConfigs\s*\{[^}]*\}'
+        replacement = '''signingConfigs {
+            release {
+                storeFile file("keystore.jks")
+                storePassword "123456"
+                keyAlias "mi-alias"
+                keyPassword "123456"
+            }
+        }'''
+        
+        content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+        
+        # Asegurar que buildTypes use el signingConfig
+        if 'signingConfig signingConfigs.release' not in content:
+            content = content.replace(
+                'release {',
+                'release {\n            signingConfig signingConfigs.release'
+            )
+        
+        with open('app/build.gradle', 'w') as f:
+            f.write(content)
+        print("✅ build.gradle actualizado")
+        PYTHON
+        else
+          echo "⚠️ No existe signingConfigs, añadiendo..."
+          cat >> app/build.gradle << 'GRADLE'
+
+        signingConfigs {
+            release {
+                storeFile file("keystore.jks")
+                storePassword "123456"
+                keyAlias "mi-alias"
+                keyPassword "123456"
+            }
+        }
+
+        buildTypes {
+            release {
+                signingConfig signingConfigs.release
+                minifyEnabled false
+                proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            }
+        }
+        GRADLE
+          echo "✅ signingConfigs añadido"
+        fi
+    
+    - name: Compilar APK Release
+      run: |
+        echo "🏗️ Compilando APK..."
         ./gradlew assembleRelease || gradle assembleRelease
+        echo "✅ Compilación completada"
+    
+    - name: Verificar APK generada
+      run: |
+        echo "📂 Archivos generados:"
+        find app/build/outputs/apk -name "*.apk" -ls || echo "❌ No se encontraron APKs"
     
     - name: Subir APK firmada
       uses: actions/upload-artifact@v4
       with:
         name: app-release-signed
-        path: ${{ steps.sign_app.outputs.signedFile }}
+        path: app/build/outputs/apk/release/*.apk
+        retention-days: 30
+
+    - name: Subir keystore (opcional)
+      uses: actions/upload-artifact@v4
+      with:
+        name: keystore-backup
+        path: keystore.jks
+        retention-days: 7
