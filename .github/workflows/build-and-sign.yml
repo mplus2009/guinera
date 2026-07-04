@@ -3,8 +3,6 @@ name: Build and Sign APK
 on:
   push:
     branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -24,11 +22,21 @@ jobs:
     - name: Configurar Gradle
       uses: gradle/actions/setup-gradle@v3
     
-    - name: Dar permisos a gradlew
-      run: chmod +x gradlew
+    - name: Verificar y generar gradlew
+      run: |
+        if [ ! -f "gradlew" ]; then
+          echo "⚠️ Generando gradlew..."
+          gradle wrapper
+        fi
+        chmod +x gradlew || true
     
-    - name: Compilar APK de release
-      run: ./gradlew assembleRelease
+    - name: Compilar APK release
+      run: |
+        if [ -f "gradlew" ]; then
+          ./gradlew assembleRelease
+        else
+          gradle assembleRelease
+        fi
     
     - name: Firmar APK
       uses: r0adkll/sign-android-release@v1
