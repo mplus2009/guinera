@@ -32,7 +32,8 @@ jobs:
         mkdir -p gradle/wrapper
         
         # Crear settings.gradle si no existe
-        [ -f settings.gradle ] || cat > settings.gradle << 'SETTINGS'
+        if [ ! -f settings.gradle ]; then
+          cat > settings.gradle << 'SETTINGS'
         pluginManagement {
             repositories {
                 google()
@@ -50,87 +51,110 @@ jobs:
         rootProject.name = "MiApp"
         include(":app")
         SETTINGS
+        fi
         
         # Crear build.gradle raíz si no existe
-        [ -f build.gradle ] || cat > build.gradle << 'BUILD'
+        if [ ! -f build.gradle ]; then
+          cat > build.gradle << 'BUILD'
         plugins {
             id("com.android.application") version "8.2.2" apply false
             id("org.jetbrains.kotlin.android") version "1.9.22" apply false
         }
         BUILD
+        fi
     
-    - name: 🔧 Auto-reparar build.gradle
+    - name: 🔧 Auto-reparar y crear build.gradle
       run: |
         echo "🔧 Verificando y reparando app/build.gradle..."
         
-        # Si no existe, crearlo desde cero
+        # Si no existe, crearlo desde cero (versión CORREGIDA)
         if [ ! -f app/build.gradle ]; then
           cat > app/build.gradle << 'APPBUILD'
-          plugins {
-              id("com.android.application")
-              id("org.jetbrains.kotlin.android")
-          }
-          
-          android {
-              namespace = "com.example.app"
-              compileSdk = 34
-          
-              defaultConfig {
-                  applicationId = "com.example.app"
-                  minSdk = 21
-                  targetSdk = 34
-                  versionCode = 1
-                  versionName = "1.0"
-              }
-          
-              buildTypes {
-                  release {
-                      minifyEnabled false
-                      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-                  }
-              }
-              
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-              
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
-          }
-          
-          dependencies {
-              implementation("androidx.core:core-ktx:1.13.1")
-              implementation("androidx.appcompat:appcompat:1.7.0")
-              implementation("com.google.android.material:material:1.12.0")
-              implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-          }
-APPBUILD
+        plugins {
+            id("com.android.application")
+            id("org.jetbrains.kotlin.android")
+        }
+        
+        android {
+            namespace = "com.example.app"
+            compileSdk = 34
+        
+            defaultConfig {
+                applicationId = "com.example.app"
+                minSdk = 21
+                targetSdk = 34
+                versionCode = 1
+                versionName = "1.0"
+            }
+        
+            buildTypes {
+                release {
+                    minifyEnabled false
+                    proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+                }
+            }
+            
+            compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_17
+                targetCompatibility = JavaVersion.VERSION_17
+            }
+            
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+        }
+        
+        dependencies {
+            implementation("androidx.core:core-ktx:1.13.1")
+            implementation("androidx.appcompat:appcompat:1.7.0")
+            implementation("com.google.android.material:material:1.12.0")
+            implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+        }
+        APPBUILD
           echo "✅ app/build.gradle creado desde cero"
         else
-          # Reparar errores comunes
-          # 1. isMinifyEnabled -> minifyEnabled (Groovy DSL)
+          # Reparar errores comunes en Groovy DSL
+          echo "🔧 Reparando sintaxis de app/build.gradle..."
+          
+          # Crear una copia de seguridad
+          cp app/build.gradle app/build.gradle.bak
+          
+          # CORRECCIÓN: isMinifyEnabled -> minifyEnabled (Groovy DSL)
           sed -i 's/isMinifyEnabled\s*=\s*true/minifyEnabled true/g' app/build.gradle
           sed -i 's/isMinifyEnabled\s*=\s*false/minifyEnabled false/g' app/build.gradle
+          sed -i 's/isMinifyEnabled/minifyEnabled/g' app/build.gradle
           
-          # 2. isShrinkResources -> shrinkResources
+          # CORRECCIÓN: isShrinkResources -> shrinkResources
           sed -i 's/isShrinkResources\s*=\s*true/shrinkResources true/g' app/build.gradle
           sed -i 's/isShrinkResources\s*=\s*false/shrinkResources false/g' app/build.gradle
+          sed -i 's/isShrinkResources/shrinkResources/g' app/build.gradle
           
-          # 3. isCrunchPngs -> crunchPngs
+          # CORRECCIÓN: isCrunchPngs -> crunchPngs
           sed -i 's/isCrunchPngs\s*=\s*true/crunchPngs true/g' app/build.gradle
           sed -i 's/isCrunchPngs\s*=\s*false/crunchPngs false/g' app/build.gradle
+          sed -i 's/isCrunchPngs/crunchPngs/g' app/build.gradle
+          
+          # CORRECCIÓN: isDebuggable -> debuggable
+          sed -i 's/isDebuggable\s*=\s*true/debuggable true/g' app/build.gradle
+          sed -i 's/isDebuggable\s*=\s*false/debuggable false/g' app/build.gradle
+          sed -i 's/isDebuggable/debuggable/g' app/build.gradle
           
           echo "✅ app/build.gradle reparado"
+          
+          # Mostrar diferencias
+          echo "📊 Cambios realizados:"
+          diff app/build.gradle.bak app/build.gradle || true
+          rm -f app/build.gradle.bak
         fi
         
+        echo ""
         echo "📄 Contenido final de app/build.gradle:"
         cat app/build.gradle
     
     - name: Crear AndroidManifest.xml (si no existe)
       run: |
-        [ -f app/src/main/AndroidManifest.xml ] || cat > app/src/main/AndroidManifest.xml << 'MANIFEST'
+        if [ ! -f app/src/main/AndroidManifest.xml ]; then
+          cat > app/src/main/AndroidManifest.xml << 'MANIFEST'
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
             <application
@@ -140,7 +164,9 @@ APPBUILD
                 android:roundIcon="@mipmap/ic_launcher_round"
                 android:supportsRtl="true"
                 android:theme="@style/Theme.AppCompat.Light">
-                <activity android:name=".MainActivity" android:exported="true">
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true">
                     <intent-filter>
                         <action android:name="android.intent.action.MAIN" />
                         <category android:name="android.intent.category.LAUNCHER" />
@@ -148,11 +174,13 @@ APPBUILD
                 </activity>
             </application>
         </manifest>
-MANIFEST
+        MANIFEST
+        fi
     
     - name: Crear MainActivity.kt (si no existe)
       run: |
-        [ -f app/src/main/java/com/example/app/MainActivity.kt ] || cat > app/src/main/java/com/example/app/MainActivity.kt << 'ACTIVITY'
+        if [ ! -f app/src/main/java/com/example/app/MainActivity.kt ]; then
+          cat > app/src/main/java/com/example/app/MainActivity.kt << 'ACTIVITY'
         package com.example.app
         
         import android.os.Bundle
@@ -164,17 +192,20 @@ MANIFEST
                 setContentView(R.layout.activity_main)
             }
         }
-ACTIVITY
+        ACTIVITY
+        fi
     
     - name: Crear layout (si no existe)
       run: |
-        [ -f app/src/main/res/layout/activity_main.xml ] || cat > app/src/main/res/layout/activity_main.xml << 'LAYOUT'
+        if [ ! -f app/src/main/res/layout/activity_main.xml ]; then
+          cat > app/src/main/res/layout/activity_main.xml << 'LAYOUT'
         <?xml version="1.0" encoding="utf-8"?>
         <androidx.constraintlayout.widget.ConstraintLayout 
             xmlns:android="http://schemas.android.com/apk/res/android"
             xmlns:app="http://schemas.android.com/apk/res-auto"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
+        
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -184,16 +215,26 @@ ACTIVITY
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
+        
         </androidx.constraintlayout.widget.ConstraintLayout>
-LAYOUT
+        LAYOUT
+        fi
     
     - name: Crear strings.xml (si no existe)
       run: |
-        [ -f app/src/main/res/values/strings.xml ] || cat > app/src/main/res/values/strings.xml << 'STRINGS'
+        if [ ! -f app/src/main/res/values/strings.xml ]; then
+          cat > app/src/main/res/values/strings.xml << 'STRINGS'
         <resources>
             <string name="app_name">Mi App</string>
         </resources>
-STRINGS
+        STRINGS
+        fi
+    
+    - name: Crear proguard-rules.pro (si no existe)
+      run: |
+        if [ ! -f app/proguard-rules.pro ]; then
+          touch app/proguard-rules.pro
+        fi
     
     - name: Generar Gradle Wrapper
       run: |
@@ -208,34 +249,77 @@ STRINGS
           chmod +x gradlew
         fi
     
-    - name: 🔄 Intentar compilar con auto-reparación
+    - name: Verificar estructura final
+      run: |
+        echo "📁 Estructura del proyecto:"
+        tree -L 3 || find . -type f -name "*.gradle" -o -name "*.xml" -o -name "*.kt" -o -name "gradlew" | head -20
+        echo ""
+        echo "📄 Verificando archivos críticos:"
+        test -f settings.gradle && echo "✅ settings.gradle" || echo "❌ settings.gradle"
+        test -f build.gradle && echo "✅ build.gradle" || echo "❌ build.gradle"
+        test -f app/build.gradle && echo "✅ app/build.gradle" || echo "❌ app/build.gradle"
+        test -f gradlew && echo "✅ gradlew" || echo "❌ gradlew"
+        test -f app/src/main/AndroidManifest.xml && echo "✅ AndroidManifest.xml" || echo "❌ AndroidManifest.xml"
+    
+    - name: 🔨 Compilar APK Debug
       id: build
       continue-on-error: true
       run: |
-        echo "🔨 Intentando compilar..."
-        ./gradlew clean assembleDebug --no-daemon --stacktrace || {
-          echo "⚠️ Compilación falló. Intentando reparar..."
-          
-          # Si el error es por isMinifyEnabled, forzar corrección
-          if grep -q "isMinifyEnabled" app/build.gradle; then
-            echo "🔧 Reparando isMinifyEnabled -> minifyEnabled"
-            sed -i 's/isMinifyEnabled/minifyEnabled/g' app/build.gradle
-            sed -i 's/isShrinkResources/shrinkResources/g' app/build.gradle
-            sed -i 's/isCrunchPngs/crunchPngs/g' app/build.gradle
-          fi
-          
-          # Reintentar compilación
-          echo "🔄 Reintentando compilación..."
-          ./gradlew clean assembleDebug --no-daemon --stacktrace
-        }
+        echo "🔨 Compilando APK Debug..."
+        ./gradlew clean assembleDebug --no-daemon --stacktrace
     
-    - name: Verificar si la compilación fue exitosa
+    - name: 🔄 Reintentar si falló
       if: steps.build.outcome != 'success'
       run: |
-        echo "❌ La compilación falló después de los intentos de reparación"
-        echo "📋 Últimas líneas del log:"
-        tail -100 build.log || echo "No hay log disponible"
+        echo "⚠️ Primera compilación falló. Intentando reparación avanzada..."
+        
+        # Forzar corrección de sintaxis Groovy
+        echo "🔧 Aplicando reparaciones adicionales..."
+        
+        # Eliminar posibles caracteres problemáticos
+        sed -i 's/^[[:space:]]*isMinifyEnabled[[:space:]]*=/minifyEnabled =/g' app/build.gradle
+        sed -i 's/^[[:space:]]*isShrinkResources[[:space:]]*=/shrinkResources =/g' app/build.gradle
+        sed -i 's/^[[:space:]]*isCrunchPngs[[:space:]]*=/crunchPngs =/g' app/build.gradle
+        sed -i 's/^[[:space:]]*isDebuggable[[:space:]]*=/debuggable =/g' app/build.gradle
+        
+        # Convertir todo a sintaxis Groovy correcta
+        sed -i 's/isMinifyEnabled/minifyEnabled/g' app/build.gradle
+        sed -i 's/isShrinkResources/shrinkResources/g' app/build.gradle
+        sed -i 's/isCrunchPngs/crunchPngs/g' app/build.gradle
+        sed -i 's/isDebuggable/debuggable/g' app/build.gradle
+        
+        echo "📄 app/build.gradle después de reparaciones:"
+        cat app/build.gradle
+        
+        echo ""
+        echo "🔄 Reintentando compilación..."
+        ./gradlew clean assembleDebug --no-daemon --stacktrace
+    
+    - name: Verificar compilación exitosa
+      if: steps.build.outcome != 'success'
+      run: |
+        echo "❌ La compilación falló después de todos los intentos de reparación"
+        echo "📋 Diagnóstico:"
+        echo "1. Verifica que app/build.gradle tenga sintaxis Groovy correcta"
+        echo "2. Asegúrate de que todas las dependencias estén disponibles"
+        echo "3. Revisa los logs de error arriba para más detalles"
         exit 1
+    
+    - name: Verificar APK generado
+      run: |
+        echo "🔍 Buscando APK generado..."
+        if [ -d "app/build/outputs/apk" ]; then
+          echo "✅ APKs encontrados:"
+          find app/build/outputs/apk -name "*.apk" -exec ls -lh {} \;
+          echo ""
+          echo "📊 Información del APK:"
+          find app/build/outputs/apk -name "*.apk" -exec file {} \;
+        else
+          echo "❌ No se encontraron APKs"
+          echo "Contenido de app/build:"
+          find app/build -type f 2>/dev/null || echo "No existe app/build"
+          exit 1
+        fi
     
     - name: Subir APK Debug
       uses: actions/upload-artifact@v4
@@ -251,3 +335,15 @@ STRINGS
         name: app-release-apk
         path: app/build/outputs/apk/release/*.apk
         retention-days: 30
+    
+    - name: Crear Release (si es main)
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: app/build/outputs/apk/release/*.apk
+        tag_name: v${{ github.run_number }}
+        name: Release v${{ github.run_number }}
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
