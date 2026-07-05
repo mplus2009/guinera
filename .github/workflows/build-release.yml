@@ -32,10 +32,13 @@ jobs:
         fi
         chmod +x gradlew
 
-    - name: Compilar APK de Release
+    - name: Compilar APK de Release (sin firmar)
       run: ./gradlew assembleRelease
+      env:
+        # Forzar a que no intente firmar
+        ORG_GRADLE_PROJECT_android_useUnsafeTrackRunner: "true"
 
-    - name: Subir APK compilada
+    - name: Subir APK compilada (sin firmar)
       uses: actions/upload-artifact@v4
       with:
         name: app-release-unsigned
