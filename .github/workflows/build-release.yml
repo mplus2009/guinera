@@ -22,6 +22,16 @@ jobs:
     - name: Configurar Gradle
       uses: gradle/actions/setup-gradle@v3
 
+    - name: Generar Gradle Wrapper si no existe
+      run: |
+        if [ ! -f "gradlew" ]; then
+          echo "📦 Generando Gradle Wrapper..."
+          gradle wrapper
+        else
+          echo "✅ Gradle Wrapper ya existe"
+        fi
+        chmod +x gradlew
+
     - name: Compilar APK de Release
       run: ./gradlew assembleRelease
 
