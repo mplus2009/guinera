@@ -220,7 +220,7 @@ fun LaGuineraApp(repository: AppRepository, userId: String) {
 
     val unseenNotifications by viewModel.unseenNotifications.collectAsState(initial = emptyList())
     val activeUnseenNotifications = unseenNotifications.filter { it.isActive }
-    if (activeUnseenNotifications.isNotEmpty()) {
+    if (activeUnseenNotifications.isNotEmpty() && userSession != null) {
         val notification = activeUnseenNotifications.first()
         val context = LocalContext.current
         androidx.compose.material3.AlertDialog(
