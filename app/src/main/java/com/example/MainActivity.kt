@@ -252,7 +252,7 @@ fun LaGuineraApp(repository: AppRepository, userId: String) {
     val activeSurveys = surveys.filter { it.isActive }
     
     val latestSurvey = activeSurveys.firstOrNull()
-    if (latestSurvey != null) {
+    if (latestSurvey != null && userSession != null) {
         var showResults by remember(latestSurvey.id) { mutableStateOf(false) }
         val hasVoted = sharedPrefs.getBoolean("survey_voted_${latestSurvey.id}", false)
         
