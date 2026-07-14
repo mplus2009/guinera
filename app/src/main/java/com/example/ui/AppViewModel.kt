@@ -245,7 +245,7 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
     }
 
     fun loginWithGoogle(displayName: String, email: String, avatarUrl: String, uID: String, context: android.content.Context) {
-        val newUserId = "google_${email.hashCode()}"
+        val newUserId = uID
         val session = UserSession(
             userId = newUserId,
             displayName = displayName,

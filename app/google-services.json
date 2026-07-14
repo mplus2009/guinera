@@ -15,6 +15,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1012766737489-nlb17p90d261s3p3djo51ufml54b80b7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aistudio.laguinera.qwertz",
+            "certificate_hash": "3e69539bdcabb70f66a0f18311e287cafb60dc77"
+          }
+        },
+        {
           "client_id": "1012766737489-6d0qr6evv83h22c0u7ic06n3i5ka6mta.apps.googleusercontent.com",
           "client_type": 3
         }
