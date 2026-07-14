@@ -15,11 +15,9 @@ import com.example.BuildConfig
 suspend fun doRealGoogleSignIn(context: Context): FirebaseUserResult? {
     try {
         val credentialManager = CredentialManager.create(context)
-        val webClientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
-        if (webClientId == "YOUR_WEB_CLIENT_ID") {
-            Log.e("GoogleSignIn", "Web Client ID not configured. Please add it to Secrets.")
-            // Falling back to null for now, but in reality we need the client ID.
-            // If the user tries to login, this will fail if it's "YOUR_WEB_CLIENT_ID", but let's pass it anyway.
+        val webClientId = context.getString(com.example.R.string.default_web_client_id)
+        if (webClientId.isEmpty()) {
+            Log.e("GoogleSignIn", "Web Client ID not found in google-services.json")
         }
 
         val googleIdOption = GetGoogleIdOption.Builder()
