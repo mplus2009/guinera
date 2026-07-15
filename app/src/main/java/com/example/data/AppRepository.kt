@@ -59,6 +59,78 @@ class AppRepository(private val appDao: AppDao) {
             ?.update("ratings.$userId", rating)
     }
 
+    fun getBusinessSpaces(): Flow<List<BusinessSpace>> = callbackFlow {
+        if (firestore == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        val listener = firestore.collection("business_spaces")
+            .addSnapshotListener { snapshot, _ ->
+                val spaces = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(BusinessSpace::class.java)?.apply { id = doc.id }
+                } ?: emptyList()
+                trySend(spaces)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    fun addBusinessSpace(space: BusinessSpace, onComplete: (String) -> Unit) {
+        if (firestore == null) return
+        val docRef = firestore.collection("business_spaces").document()
+        space.id = docRef.id
+        docRef.set(space).addOnSuccessListener { onComplete(docRef.id) }
+    }
+
+    fun updateBusinessSpace(space: BusinessSpace, onComplete: () -> Unit) {
+        if (firestore == null) return
+        firestore.collection("business_spaces").document(space.id).set(space).addOnSuccessListener { onComplete() }
+    }
+
+
+    fun getSpaceProducts(spaceId: String): Flow<List<SpaceProduct>> = callbackFlow {
+        if (firestore == null) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+        val listener = firestore.collection("space_products")
+            .whereEqualTo("spaceId", spaceId)
+            .addSnapshotListener { snapshot, _ ->
+                val products = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(SpaceProduct::class.java)?.apply { id = doc.id }
+                } ?: emptyList()
+                trySend(products)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    fun addSpaceProduct(product: SpaceProduct) {
+        if (firestore == null) return
+        val docRef = firestore.collection("space_products").document()
+        product.id = docRef.id
+        docRef.set(product)
+    }
+
+    
+    suspend fun getSpaceProduct(productId: String): SpaceProduct? {
+        if (firestore == null) return null
+        return try {
+            firestore.collection("space_products").document(productId).get().await().toObject(SpaceProduct::class.java)
+        } catch (e: Exception) { null }
+    }
+
+    fun updateSpaceProduct(product: SpaceProduct) {
+        if (firestore == null) return
+        firestore.collection("space_products").document(product.id).set(product)
+    }
+
+    fun deleteSpaceProduct(productId: String) {
+        if (firestore == null) return
+        firestore.collection("space_products").document(productId).delete()
+    }
+
+
     fun getChats(blockName: String): Flow<List<ChatMessage>> = callbackFlow {
         if (firestore == null) {
             trySend(emptyList())
@@ -205,4 +277,46 @@ class AppRepository(private val appDao: AppDao) {
     suspend fun insertP2PContact(contact: P2PContact) = appDao.insertP2PContact(contact)
     fun getP2PMessages(user1: String, user2: String): Flow<List<P2PMessage>> = appDao.getP2PMessages(user1, user2)
     suspend fun insertP2PMessage(message: P2PMessage) = appDao.insertP2PMessage(message)
+
+
+    fun getBusinessChatsAsClient(userId: String): Flow<List<BusinessChat>> = callbackFlow {
+        if (firestore == null) { trySend(emptyList()); close(); return@callbackFlow }
+        val listener = firestore.collection("business_chats").whereEqualTo("clientId", userId)
+            .addSnapshotListener { snapshot, _ ->
+                val chats = snapshot?.documents?.mapNotNull { it.toObject(BusinessChat::class.java)?.apply { id = it.id } } ?: emptyList()
+                trySend(chats)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    fun getBusinessChatsAsOwner(userId: String): Flow<List<BusinessChat>> = callbackFlow {
+        if (firestore == null) { trySend(emptyList()); close(); return@callbackFlow }
+        val listener = firestore.collection("business_chats").whereEqualTo("ownerId", userId)
+            .addSnapshotListener { snapshot, _ ->
+                val chats = snapshot?.documents?.mapNotNull { it.toObject(BusinessChat::class.java)?.apply { id = it.id } } ?: emptyList()
+                trySend(chats)
+            }
+        awaitClose { listener.remove() }
+    }
+    
+    fun getBusinessMessages(chatId: String): Flow<List<BusinessMessage>> = callbackFlow {
+        if (firestore == null) { trySend(emptyList()); close(); return@callbackFlow }
+        val listener = firestore.collection("business_chats").document(chatId).collection("messages")
+            .orderBy("timestamp")
+            .addSnapshotListener { snapshot, _ ->
+                val msgs = snapshot?.documents?.mapNotNull { it.toObject(BusinessMessage::class.java)?.apply { id = it.id } } ?: emptyList()
+                trySend(msgs)
+            }
+        awaitClose { listener.remove() }
+    }
+    
+    fun sendBusinessMessage(chat: BusinessChat, message: BusinessMessage) {
+        if (firestore == null) return
+        val chatRef = firestore.collection("business_chats").document(chat.id)
+        chatRef.set(chat)
+        val msgRef = chatRef.collection("messages").document()
+        message.id = msgRef.id
+        msgRef.set(message)
+    }
+
 }

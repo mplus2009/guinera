@@ -3,10 +3,18 @@ package com.example.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import kotlin.math.roundToInt
+import androidx.compose.ui.input.pointer.positionChangeConsumed
+import androidx.compose.ui.input.pointer.consumePositionChange
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -197,6 +205,7 @@ fun ProductCard(
                 )
             }
             Column(modifier = Modifier.padding(16.dp)) {
+                val context = androidx.compose.ui.platform.LocalContext.current
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = product.name, 
@@ -204,26 +213,44 @@ fun ProductCard(
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f)
                     )
+                    IconButton(onClick = {
+                        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(android.content.Intent.EXTRA_TEXT, "la.g./winery/product/${product.id}")
+                        }
+                        context.startActivity(android.content.Intent.createChooser(shareIntent, "Compartir producto"))
+                    }) {
+                        Icon(androidx.compose.material.icons.Icons.Filled.Share, contentDescription = "Compartir", tint = MaterialTheme.colorScheme.primary)
+                    }
                     if (product.creatorId == currentUserId) {
                         IconButton(onClick = { onDeleteProduct(product) }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
+                            Icon(androidx.compose.material.icons.Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer
-                    ) {
-                        Text(
-                            text = "$${product.price} CUP", 
-                            style = MaterialTheme.typography.titleMedium, 
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val displayPrices = if (product.prices.isNotEmpty()) {
+                        product.prices.map { "${it.value} ${it.key}" }
+                    } else {
+                        listOf("${product.price} CUP")
                     }
+                    
+                    displayPrices.forEach { priceText ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer
+                        ) {
+                            Text(
+                                text = "$$priceText", 
+                                style = MaterialTheme.typography.titleMedium, 
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                    
                     Surface(
                         shape = RoundedCornerShape(8.dp),
                         color = MaterialTheme.colorScheme.secondaryContainer
@@ -376,9 +403,25 @@ fun ChatList(
             items(chats) { chat ->
                 val isMe = chat.authorId == currentUserId
                 var showReactions by remember { mutableStateOf(false) }
+                var offsetX by remember { mutableStateOf(0f) }
 
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset { androidx.compose.ui.unit.IntOffset(offsetX.roundToInt(), 0) }
+                        .pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    if (offsetX > 150f) {
+                                        replyToMsg = chat
+                                    }
+                                    offsetX = 0f
+                                }
+                            ) { change: androidx.compose.ui.input.pointer.PointerInputChange, dragAmount: Float ->
+                                change.consume()
+                                offsetX = (offsetX + dragAmount).coerceIn(0f, 300f)
+                            }
+                        },
                     horizontalAlignment = if (isMe) Alignment.End else Alignment.Start
                 ) {
                     Text(

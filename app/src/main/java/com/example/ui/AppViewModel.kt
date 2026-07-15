@@ -14,6 +14,11 @@ import com.example.data.SeenNotification
 import com.example.data.UserSession
 import com.example.data.P2PContact
 import com.example.data.P2PMessage
+import com.example.data.BusinessSpace
+import com.example.data.SpaceProduct
+import com.example.data.BusinessChat
+import com.example.data.BusinessMessage
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +40,9 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
 
     private val _products = MutableStateFlow<List<Product>>(emptyList())
     val products: StateFlow<List<Product>> = _products.asStateFlow()
+
+    private val _businessSpaces = MutableStateFlow<List<BusinessSpace>>(emptyList())
+    val businessSpaces: StateFlow<List<BusinessSpace>> = _businessSpaces.asStateFlow()
 
     private val _chats = MutableStateFlow<List<ChatMessage>>(emptyList())
     val chats: StateFlow<List<ChatMessage>> = _chats.asStateFlow()
@@ -115,21 +123,103 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
                 }
             }
         }
+        viewModelScope.launch {
+            repository.getBusinessSpaces().collectLatest {
+                _businessSpaces.value = it
+            }
+        }
+    }
+
+    fun addBusinessSpace(brandName: String, description: String, phoneNumber: String, latitude: Double, longitude: Double, logoUri: Uri?, bannerUri: Uri?, onComplete: (String) -> Unit) {
+        viewModelScope.launch {
+            val uploadedLogoUrl = logoUri?.let { repository.uploadImage(it) } ?: ""
+            val uploadedBannerUrl = bannerUri?.let { repository.uploadImage(it) } ?: ""
+            val space = BusinessSpace(
+                ownerId = currentUserId,
+                brandName = brandName,
+                description = description,
+                phoneNumber = phoneNumber,
+                latitude = latitude,
+                longitude = longitude,
+                logoUri = uploadedLogoUrl,
+                bannerUri = uploadedBannerUrl
+            )
+            repository.addBusinessSpace(space, onComplete)
+        }
+    }
+
+    fun updateBusinessSpace(space: BusinessSpace, newLogoUri: Uri?, newBannerUri: Uri?, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            val logoUrl = newLogoUri?.let { repository.uploadImage(it) } ?: space.logoUri
+            val bannerUrl = newBannerUri?.let { repository.uploadImage(it) } ?: space.bannerUri
+            val updatedSpace = space.copy(logoUri = logoUrl, bannerUri = bannerUrl)
+            repository.updateBusinessSpace(updatedSpace, onComplete)
+        }
+    }
+
+    fun updateSpaceProduct(product: SpaceProduct, newImageUris: List<Uri>, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            val additionalImageUrls = newImageUris.mapNotNull { repository.uploadImage(it) }
+            val updatedProduct = product.copy(imageUrls = product.imageUrls + additionalImageUrls)
+            repository.updateSpaceProduct(updatedProduct)
+            onComplete()
+        }
+    }
+
+    fun updateSpaceProduct(product: SpaceProduct, onComplete: () -> Unit) {
+        repository.updateSpaceProduct(product)
+        onComplete()
+    }
+
+    fun deleteSpaceProduct(productId: String) {
+        repository.deleteSpaceProduct(productId)
+    }
+
+    fun getSpaceProducts(spaceId: String) = repository.getSpaceProducts(spaceId)
+
+    suspend fun getSpaceProduct(productId: String): SpaceProduct? {
+        return repository.getSpaceProduct(productId)
+    }
+
+
+    fun addSpaceProduct(spaceId: String, name: String, description: String, price: Double, currency: String, imageUris: List<Uri>, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            val imageUrls = imageUris.mapNotNull { repository.uploadImage(it) }
+            repository.addSpaceProduct(
+                SpaceProduct(
+                    spaceId = spaceId,
+                    name = name,
+                    description = description,
+                    price = price,
+                    currency = currency,
+                    imageUrls = imageUrls
+                )
+            )
+            onComplete()
+        }
     }
 
     fun setBlock(blockName: String) {
         _currentBlock.value = blockName
     }
 
-    fun addProduct(blockName: String, name: String, price: Double, quantity: Int, description: String, imageUri: Uri?, onComplete: () -> Unit) {
+    fun addProduct(blockName: String, name: String, prices: Map<String, Double>, quantity: Int, description: String, imageUri: Uri?, onComplete: () -> Unit) {
         viewModelScope.launch {
             val imageUrl = imageUri?.let { repository.uploadImage(it) } ?: ""
+            
+            // Set the main price and currency for backward compatibility (pick the first one, default CUP)
+            val mainPriceEntry = prices.entries.firstOrNull()
+            val mainPrice = mainPriceEntry?.value ?: 0.0
+            val mainCurrency = mainPriceEntry?.key ?: "CUP"
+            
             repository.addProduct(
                 Product(
                     blockName = blockName,
                     creatorId = currentUserId,
                     name = name,
-                    price = price,
+                    price = mainPrice,
+                    currency = mainCurrency,
+                    prices = prices,
                     quantity = quantity,
                     description = description,
                     imageUrl = imageUrl
@@ -357,5 +447,57 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
                 repository.insertP2PMessage(autoMsg)
             }
         }
+    }
+
+
+    fun getBusinessChats(): Flow<List<BusinessChat>> {
+        val clientIdChats = repository.getBusinessChatsAsClient(currentUserId)
+        val ownerIdChats = repository.getBusinessChatsAsOwner(currentUserId)
+        return kotlinx.coroutines.flow.combine(clientIdChats, ownerIdChats) { clientChats, ownerChats ->
+            (clientChats + ownerChats).distinctBy { it.id }.sortedByDescending { it.lastMessageTime }
+        }
+    }
+
+    fun getBusinessMessages(chatId: String) = repository.getBusinessMessages(chatId)
+
+    fun sendBusinessMessage(chatId: String, space: BusinessSpace, messageText: String, imageUrl: String? = null, audioUrl: String? = null, attachedProductId: String? = null) {
+        val chat = BusinessChat(
+            id = chatId,
+            spaceId = space.id,
+            clientId = currentUserId,
+            ownerId = space.ownerId,
+            spaceName = space.brandName,
+            clientName = userSession.value?.displayName ?: "Usuario",
+            ownerName = "Negocio",
+            lastMessage = if (messageText.isNotBlank()) messageText else if (imageUrl != null) "Imagen" else if (audioUrl != null) "Audio" else "Catálogo adjunto",
+            lastMessageTime = System.currentTimeMillis()
+        )
+        val message = BusinessMessage(
+            chatId = chatId,
+            senderId = currentUserId,
+            message = messageText,
+            imageUrl = imageUrl ?: "",
+            audioUrl = audioUrl ?: "",
+            attachedProductId = attachedProductId ?: "",
+            timestamp = System.currentTimeMillis()
+        )
+        repository.sendBusinessMessage(chat, message)
+    }
+
+    fun sendBusinessMessageExisting(chat: BusinessChat, messageText: String, imageUrl: String? = null, audioUrl: String? = null, attachedProductId: String? = null) {
+        val updatedChat = chat.copy(
+            lastMessage = if (messageText.isNotBlank()) messageText else if (imageUrl != null) "Imagen" else if (audioUrl != null) "Audio" else "Catálogo adjunto",
+            lastMessageTime = System.currentTimeMillis()
+        )
+        val message = BusinessMessage(
+            chatId = chat.id,
+            senderId = currentUserId,
+            message = messageText,
+            imageUrl = imageUrl ?: "",
+            audioUrl = audioUrl ?: "",
+            attachedProductId = attachedProductId ?: "",
+            timestamp = System.currentTimeMillis()
+        )
+        repository.sendBusinessMessage(updatedChat, message)
     }
 }

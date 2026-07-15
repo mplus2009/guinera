@@ -37,7 +37,10 @@ fun AddProductScreen(
     val blocks = listOf("Bloque 1", "Bloque 2", "Bloque 3", "Bloque 4", "Bloque 5", "Bloque 6")
     
     var name by remember { mutableStateOf("") }
-    var priceStr by remember { mutableStateOf("") }
+    var priceCup by remember { mutableStateOf("") }
+    var priceUsd by remember { mutableStateOf("") }
+    var priceZelle by remember { mutableStateOf("") }
+    var priceMlc by remember { mutableStateOf("") }
     var quantityStr by remember { mutableStateOf("1") }
     var description by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
@@ -127,26 +130,56 @@ fun AddProductScreen(
             
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
-                    value = priceStr,
-                    onValueChange = { priceStr = it },
+                    value = priceCup,
+                    onValueChange = { priceCup = it },
                     label = { Text("Precio (CUP)") },
-                    leadingIcon = { Icon(Icons.Filled.AttachMoney, contentDescription = null) },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     shape = RoundedCornerShape(12.dp)
                 )
                 OutlinedTextField(
-                    value = quantityStr,
-                    onValueChange = { quantityStr = it },
-                    label = { Text("Cantidad") },
-                    leadingIcon = { Icon(Icons.Filled.ProductionQuantityLimits, contentDescription = null) },
+                    value = priceUsd,
+                    onValueChange = { priceUsd = it },
+                    label = { Text("Precio (USD)") },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     shape = RoundedCornerShape(12.dp)
                 )
             }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                OutlinedTextField(
+                    value = priceZelle,
+                    onValueChange = { priceZelle = it },
+                    label = { Text("Precio (ZELLE)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                OutlinedTextField(
+                    value = priceMlc,
+                    onValueChange = { priceMlc = it },
+                    label = { Text("Precio (MLC)") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+            
+            OutlinedTextField(
+                value = quantityStr,
+                onValueChange = { quantityStr = it },
+                label = { Text("Cantidad") },
+                leadingIcon = { Icon(Icons.Filled.ProductionQuantityLimits, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                shape = RoundedCornerShape(12.dp)
+            )
             
             OutlinedTextField(
                 value = description,
@@ -189,11 +222,16 @@ fun AddProductScreen(
             
             Button(
                 onClick = {
-                    val price = priceStr.toDoubleOrNull() ?: 0.0
+                    val prices = mutableMapOf<String, Double>()
+                    priceCup.toDoubleOrNull()?.let { prices["CUP"] = it }
+                    priceUsd.toDoubleOrNull()?.let { prices["USD"] = it }
+                    priceZelle.toDoubleOrNull()?.let { prices["ZELLE"] = it }
+                    priceMlc.toDoubleOrNull()?.let { prices["MLC"] = it }
+                    
                     val qty = quantityStr.toIntOrNull() ?: 1
                     if (name.isNotBlank()) {
                         isUploading = true
-                        viewModel.addProduct(selectedBlock, name, price, qty, description, imageUri) {
+                        viewModel.addProduct(selectedBlock, name, prices, qty, description, imageUri) {
                             onBack()
                         }
                     }
@@ -201,7 +239,7 @@ fun AddProductScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                enabled = name.isNotBlank() && priceStr.isNotBlank() && !isUploading,
+                enabled = name.isNotBlank() && (priceCup.isNotBlank() || priceUsd.isNotBlank() || priceZelle.isNotBlank() || priceMlc.isNotBlank()) && !isUploading,
                 shape = RoundedCornerShape(16.dp)
             ) {
                 if (isUploading) {

@@ -45,6 +45,8 @@ fun SearchScreen(viewModel: AppViewModel, onBack: () -> Unit) {
     } else {
         allProducts.filter { it.name.contains(query, ignoreCase = true) || it.description.contains(query, ignoreCase = true) }
     }
+    
+    val currentUserId = viewModel.currentUserId
 
     Scaffold(
         topBar = {
@@ -75,14 +77,13 @@ fun SearchScreen(viewModel: AppViewModel, onBack: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             items(filteredProducts) { product ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(product.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text("Bloque: ${product.blockName}", style = MaterialTheme.typography.bodyMedium)
-                        Text("Precio: $${product.price} CUP", style = MaterialTheme.typography.bodyMedium)
-                        Text("Cantidad disponible: ${product.quantity}", style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
+                ProductCard(
+                    product = product,
+                    currentUserId = currentUserId,
+                    onAddToCart = { viewModel.addToCart(it) },
+                    onDeleteProduct = { viewModel.deleteProduct(it) },
+                    onRateProduct = { p, r -> viewModel.rateProduct(p, r) }
+                )
             }
             if (query.isNotBlank() && filteredProducts.isEmpty()) {
                 item {

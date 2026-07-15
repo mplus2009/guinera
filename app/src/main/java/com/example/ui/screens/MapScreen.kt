@@ -68,7 +68,8 @@ fun MapScreen(
     onSearchClicked: () -> Unit = {},
     onMyProductsClicked: () -> Unit = {},
     onDeveloperMode: () -> Unit = {},
-    onChatClicked: () -> Unit = {}
+    onChatClicked: () -> Unit = {},
+    onMySpaceClicked: () -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
     var showDevDialog by remember { mutableStateOf(false) }
@@ -596,37 +597,49 @@ fun MapScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    val hasFinePermission = androidx.core.content.ContextCompat.checkSelfPermission(
-                        context,
-                        android.Manifest.permission.ACCESS_FINE_LOCATION
-                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                    
-                    val hasCoarsePermission = androidx.core.content.ContextCompat.checkSelfPermission(
-                        context,
-                        android.Manifest.permission.ACCESS_COARSE_LOCATION
-                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-
-                    if (locationPermissionsState.allPermissionsGranted && hasFinePermission && hasCoarsePermission) {
-                        isMyLocationEnabled = true
-                        myLocationOverlay?.myLocation?.let { location ->
-                            val mapBounds = org.osmdroid.util.BoundingBox(23.0541, -82.3503, 23.0371, -82.3658)
-                            if (mapBounds.contains(location)) {
-                                mapController?.animateTo(location)
-                            } else {
-                                android.widget.Toast.makeText(context, "Tu ubicación está fuera del barrio de La Güinera", android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        } ?: run {
-                            android.widget.Toast.makeText(context, "Buscando ubicación...", android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        locationPermissionsState.launchMultiplePermissionRequest()
-                    }
-                },
-                containerColor = MaterialTheme.colorScheme.secondaryContainer
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Icon(Icons.Filled.MyLocation, "Mi Ubicación")
+                ExtendedFloatingActionButton(
+                    text = { Text("Mi Espacio") },
+                    icon = { Icon(Icons.Filled.Store, "Mi Espacio") },
+                    onClick = onMySpaceClicked,
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                FloatingActionButton(
+                    onClick = {
+                        val hasFinePermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                            context,
+                            android.Manifest.permission.ACCESS_FINE_LOCATION
+                        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                        
+                        val hasCoarsePermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                            context,
+                            android.Manifest.permission.ACCESS_COARSE_LOCATION
+                        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+                        if (locationPermissionsState.allPermissionsGranted && hasFinePermission && hasCoarsePermission) {
+                            isMyLocationEnabled = true
+                            myLocationOverlay?.myLocation?.let { location ->
+                                val mapBounds = org.osmdroid.util.BoundingBox(23.0541, -82.3503, 23.0371, -82.3658)
+                                if (mapBounds.contains(location)) {
+                                    mapController?.animateTo(location)
+                                } else {
+                                    android.widget.Toast.makeText(context, "Tu ubicación está fuera del barrio de La Güinera", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            } ?: run {
+                                android.widget.Toast.makeText(context, "Buscando ubicación...", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            locationPermissionsState.launchMultiplePermissionRequest()
+                        }
+                    },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Icon(Icons.Filled.MyLocation, "Mi Ubicación")
+                }
             }
         }
     ) { padding ->

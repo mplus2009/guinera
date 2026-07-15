@@ -138,7 +138,105 @@ fun LaGuineraApp(repository: AppRepository, userId: String) {
                 onSearchClicked = { navController.navigate("search") },
                 onMyProductsClicked = { navController.navigate("my_products") },
                 onDeveloperMode = { navController.navigate("developer") },
-                onChatClicked = { navController.navigate("p2p_chat") }
+                onChatClicked = { navController.navigate("p2p_chat") },
+                onMySpaceClicked = { navController.navigate("my_space_map") }
+            )
+        }
+
+        composable("my_space_map") {
+            com.example.ui.screens.MySpaceMapScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onCreateSpace = { navController.navigate("create_business") },
+                onManageBusinesses = { navController.navigate("manage_businesses") },
+                onSpaceSelected = { spaceId -> navController.navigate("business_detail/$spaceId") },
+                onOpenBusinessChats = { navController.navigate("business_chats") }
+            )
+        }
+        
+        composable("business_chats") {
+            com.example.ui.screens.BusinessChatsScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onOpenChat = { chatId -> navController.navigate("business_chat/$chatId") }
+            )
+        }
+        
+        composable(
+            "business_chat/{chatId}",
+            arguments = listOf(androidx.navigation.navArgument("chatId") { type = androidx.navigation.NavType.StringType })
+        ) { backStackEntry ->
+            val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
+            com.example.ui.screens.BusinessChatDetailScreen(
+                chatId = chatId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable("manage_businesses") {
+            com.example.ui.screens.ManageBusinessesScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onBusinessSelected = { spaceId -> navController.navigate("business_detail/$spaceId") }
+            )
+        }
+        
+        composable("create_business") {
+            com.example.ui.screens.CreateBusinessScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(
+            route = "business_detail/{spaceId}",
+            arguments = listOf(androidx.navigation.navArgument("spaceId") { type = androidx.navigation.NavType.StringType })
+        ) { backStackEntry ->
+            val spaceId = backStackEntry.arguments?.getString("spaceId") ?: return@composable
+            com.example.ui.screens.BusinessDetailScreen(
+                spaceId = spaceId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onAddProduct = { navController.navigate("add_space_product/$spaceId") },
+                onEditBusiness = { navController.navigate("edit_business/$spaceId") },
+                onEditProduct = { productId -> navController.navigate("edit_space_product/$productId") }
+            )
+        }
+
+        composable(
+            route = "edit_business/{spaceId}",
+            arguments = listOf(androidx.navigation.navArgument("spaceId") { type = androidx.navigation.NavType.StringType })
+        ) { backStackEntry ->
+            val spaceId = backStackEntry.arguments?.getString("spaceId") ?: return@composable
+            com.example.ui.screens.EditBusinessScreen(
+                spaceId = spaceId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "edit_space_product/{productId}",
+            arguments = listOf(androidx.navigation.navArgument("productId") { type = androidx.navigation.NavType.StringType })
+        ) { backStackEntry ->
+            val productId = backStackEntry.arguments?.getString("productId") ?: return@composable
+            com.example.ui.screens.EditSpaceProductScreen(
+                productId = productId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = "add_space_product/{spaceId}",
+            arguments = listOf(androidx.navigation.navArgument("spaceId") { type = androidx.navigation.NavType.StringType })
+        ) { backStackEntry ->
+            val spaceId = backStackEntry.arguments?.getString("spaceId") ?: return@composable
+            com.example.ui.screens.AddSpaceProductScreen(
+                spaceId = spaceId,
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -254,14 +352,16 @@ fun LaGuineraApp(repository: AppRepository, userId: String) {
     val latestSurvey = activeSurveys.firstOrNull()
     if (latestSurvey != null && userSession != null) {
         var showResults by remember(latestSurvey.id) { mutableStateOf(false) }
+        var isDismissed by remember(latestSurvey.id) { mutableStateOf(false) }
         val hasVoted = sharedPrefs.getBoolean("survey_voted_${latestSurvey.id}", false)
         
-        if (!hasVoted || showResults) {
+        if (!isDismissed && (!hasVoted || showResults)) {
             val isAnonymous = userSession?.isAnonymous ?: true
 
             androidx.compose.material3.AlertDialog(
                 onDismissRequest = { 
                     sharedPrefs.edit().putBoolean("survey_voted_${latestSurvey.id}", true).apply()
+                    isDismissed = true
                     showResults = false
                 },
                 title = { 
@@ -384,6 +484,7 @@ fun LaGuineraApp(repository: AppRepository, userId: String) {
                         androidx.compose.material3.Button(
                             onClick = { 
                                 showResults = false 
+                                isDismissed = true
                             }
                         ) {
                             androidx.compose.material3.Text("Cerrar")
@@ -392,6 +493,7 @@ fun LaGuineraApp(repository: AppRepository, userId: String) {
                         androidx.compose.material3.TextButton(
                             onClick = { 
                                 sharedPrefs.edit().putBoolean("survey_voted_${latestSurvey.id}", true).apply()
+                                isDismissed = true
                             }
                         ) {
                             androidx.compose.material3.Text("Omitir")
