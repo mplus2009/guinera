@@ -130,10 +130,16 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
         }
     }
 
-    fun addBusinessSpace(brandName: String, description: String, phoneNumber: String, latitude: Double, longitude: Double, logoUri: Uri?, bannerUri: Uri?, onComplete: (String) -> Unit) {
+    fun addBusinessSpace(brandName: String, description: String, phoneNumber: String, latitude: Double, longitude: Double, logoUri: Uri?, bannerUri: Uri?, onComplete: (String?, String?) -> Unit) {
         viewModelScope.launch {
-            val uploadedLogoUrl = logoUri?.let { repository.uploadImage(it) } ?: ""
-            val uploadedBannerUrl = bannerUri?.let { repository.uploadImage(it) } ?: ""
+            val uploadedLogoUrl = logoUri?.let { repository.uploadImage(it) }
+            val uploadedBannerUrl = bannerUri?.let { repository.uploadImage(it) }
+            
+            if ((logoUri != null && uploadedLogoUrl == null) || (bannerUri != null && uploadedBannerUrl == null)) {
+                onComplete(null, "Error al subir las imágenes. Revisa que Configuraste el API Key de ImgBB en los Secrets de AI Studio?")
+                return@launch
+            }
+            
             val space = BusinessSpace(
                 ownerId = currentUserId,
                 brandName = brandName,
@@ -141,28 +147,45 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
                 phoneNumber = phoneNumber,
                 latitude = latitude,
                 longitude = longitude,
-                logoUri = uploadedLogoUrl,
-                bannerUri = uploadedBannerUrl
+                logoUri = uploadedLogoUrl ?: "",
+                bannerUri = uploadedBannerUrl ?: ""
             )
-            repository.addBusinessSpace(space, onComplete)
+            repository.addBusinessSpace(space) { id ->
+                onComplete(id, null)
+            }
         }
     }
 
-    fun updateBusinessSpace(space: BusinessSpace, newLogoUri: Uri?, newBannerUri: Uri?, onComplete: () -> Unit) {
+    fun updateBusinessSpace(space: BusinessSpace, newLogoUri: Uri?, newBannerUri: Uri?, onComplete: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
-            val logoUrl = newLogoUri?.let { repository.uploadImage(it) } ?: space.logoUri
-            val bannerUrl = newBannerUri?.let { repository.uploadImage(it) } ?: space.bannerUri
+            val uploadedLogo = newLogoUri?.let { repository.uploadImage(it) }
+            val uploadedBanner = newBannerUri?.let { repository.uploadImage(it) }
+            
+            if ((newLogoUri != null && uploadedLogo == null) || (newBannerUri != null && uploadedBanner == null)) {
+                onComplete(false, "Error al subir la imagen. Falta el API Key de ImgBB.")
+                return@launch
+            }
+            
+            val logoUrl = uploadedLogo ?: space.logoUri
+            val bannerUrl = uploadedBanner ?: space.bannerUri
+            
             val updatedSpace = space.copy(logoUri = logoUrl, bannerUri = bannerUrl)
-            repository.updateBusinessSpace(updatedSpace, onComplete)
+            repository.updateBusinessSpace(updatedSpace) {
+                onComplete(true, null)
+            }
         }
     }
 
-    fun updateSpaceProduct(product: SpaceProduct, newImageUris: List<Uri>, onComplete: () -> Unit) {
+    fun updateSpaceProduct(product: SpaceProduct, newImageUris: List<Uri>, onComplete: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             val additionalImageUrls = newImageUris.mapNotNull { repository.uploadImage(it) }
+            if (newImageUris.isNotEmpty() && additionalImageUrls.isEmpty()) {
+                onComplete(false, "No se pudieron subir las imágenes. Falta el API Key de ImgBB en Secrets.")
+                return@launch
+            }
             val updatedProduct = product.copy(imageUrls = product.imageUrls + additionalImageUrls)
             repository.updateSpaceProduct(updatedProduct)
-            onComplete()
+            onComplete(true, null)
         }
     }
 
@@ -182,9 +205,13 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
     }
 
 
-    fun addSpaceProduct(spaceId: String, name: String, description: String, price: Double, currency: String, imageUris: List<Uri>, onComplete: () -> Unit) {
+    fun addSpaceProduct(spaceId: String, name: String, description: String, price: Double, currency: String, imageUris: List<Uri>, onComplete: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             val imageUrls = imageUris.mapNotNull { repository.uploadImage(it) }
+            if (imageUris.isNotEmpty() && imageUrls.isEmpty()) {
+                onComplete(false, "No se pudieron subir las imágenes. Falta el API Key de ImgBB en Secrets.")
+                return@launch
+            }
             repository.addSpaceProduct(
                 SpaceProduct(
                     spaceId = spaceId,
@@ -195,7 +222,7 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
                     imageUrls = imageUrls
                 )
             )
-            onComplete()
+            onComplete(true, null)
         }
     }
 
@@ -203,9 +230,15 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
         _currentBlock.value = blockName
     }
 
-    fun addProduct(blockName: String, name: String, prices: Map<String, Double>, quantity: Int, description: String, imageUri: Uri?, onComplete: () -> Unit) {
+    fun addProduct(blockName: String, name: String, prices: Map<String, Double>, quantity: Int, description: String, imageUri: Uri?, onComplete: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
-            val imageUrl = imageUri?.let { repository.uploadImage(it) } ?: ""
+            val uploadedUrl = imageUri?.let { repository.uploadImage(it) }
+            if (imageUri != null && uploadedUrl == null) {
+                onComplete(false, "No se pudo subir la imagen. Falta el API Key de ImgBB en Secrets.")
+                return@launch
+            }
+            
+            val imageUrl = uploadedUrl ?: ""
             
             // Set the main price and currency for backward compatibility (pick the first one, default CUP)
             val mainPriceEntry = prices.entries.firstOrNull()
@@ -225,7 +258,7 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
                     imageUrl = imageUrl
                 )
             )
-            onComplete()
+            onComplete(true, null)
         }
     }
 
@@ -349,6 +382,32 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
         val sharedPrefs = context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
         sharedPrefs.edit().apply {
             putString("session_user_id", newUserId)
+            putString("session_name", displayName)
+            putString("session_email", email)
+            putString("session_avatar", avatarUrl)
+            putBoolean("session_is_anonymous", false)
+            putString("session_uid", uID)
+        }.apply()
+    }
+
+    suspend fun uploadImage(uri: Uri): String? {
+        return repository.uploadImage(uri)
+    }
+
+    fun loginWithEmail(displayName: String, email: String, avatarUrl: String, uID: String, context: android.content.Context) {
+        val session = UserSession(
+            userId = uID,
+            displayName = displayName,
+            email = email,
+            avatarUrl = avatarUrl,
+            isAnonymous = false,
+            uID = uID
+        )
+        _userSession.value = session
+        
+        val sharedPrefs = context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+        sharedPrefs.edit().apply {
+            putString("session_user_id", uID)
             putString("session_name", displayName)
             putString("session_email", email)
             putString("session_avatar", avatarUrl)
@@ -482,6 +541,18 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
             timestamp = System.currentTimeMillis()
         )
         repository.sendBusinessMessage(chat, message)
+    }
+
+        fun sendBusinessImageMessage(chat: BusinessChat, imageUri: Uri, onComplete: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            val uploadedUrl = repository.uploadImage(imageUri)
+            if (uploadedUrl == null) {
+                onComplete(false, "No se pudo subir la imagen. Falta el API Key de ImgBB en Secrets.")
+                return@launch
+            }
+            sendBusinessMessageExisting(chat, "", imageUrl = uploadedUrl)
+            onComplete(true, null)
+        }
     }
 
     fun sendBusinessMessageExisting(chat: BusinessChat, messageText: String, imageUrl: String? = null, audioUrl: String? = null, attachedProductId: String? = null) {

@@ -224,7 +224,7 @@ fun MapScreen(
                             onLogout()
                         }
                     ) {
-                        Text("Iniciar Sesión con Google")
+                        Text("Acceder con Google")
                     }
                 }
             },

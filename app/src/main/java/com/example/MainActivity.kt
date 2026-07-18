@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
     )
     .fallbackToDestructiveMigration(true)
     .build()
-    val repository = AppRepository(database.appDao())
+    val repository = AppRepository(database.appDao(), applicationContext)
     
     val sharedPrefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
     var userId = sharedPrefs.getString("user_id", null)

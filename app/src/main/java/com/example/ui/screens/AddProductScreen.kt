@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import com.example.ui.AppViewModel
 import coil.compose.AsyncImage
 
@@ -32,6 +33,7 @@ fun AddProductScreen(
     viewModel: AppViewModel,
     onBack: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var selectedBlock by remember { mutableStateOf(if (blockName == "none") "Bloque 1" else blockName) }
     var expanded by remember { mutableStateOf(false) }
     val blocks = listOf("Bloque 1", "Bloque 2", "Bloque 3", "Bloque 4", "Bloque 5", "Bloque 6")
@@ -231,8 +233,14 @@ fun AddProductScreen(
                     val qty = quantityStr.toIntOrNull() ?: 1
                     if (name.isNotBlank()) {
                         isUploading = true
-                        viewModel.addProduct(selectedBlock, name, prices, qty, description, imageUri) {
-                            onBack()
+                        viewModel.addProduct(selectedBlock, name, prices, qty, description, imageUri) { success, error ->
+                            isUploading = false
+                            if (success) {
+                                android.widget.Toast.makeText(context, "Publicado", android.widget.Toast.LENGTH_SHORT).show()
+                                onBack()
+                            } else {
+                                android.widget.Toast.makeText(context, "Error: $error", android.widget.Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 },

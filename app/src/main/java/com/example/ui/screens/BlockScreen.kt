@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Reply
@@ -463,12 +465,25 @@ fun ChatList(
                                 color = if (isMe) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = formatter.format(Date(chat.timestamp)),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (isMe) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f),
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.align(Alignment.End)
-                            )
+                            ) {
+                                Text(
+                                    text = formatter.format(Date(chat.timestamp)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isMe) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f) else MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
+                                )
+                                if (isMe) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = if (chat.isPending) Icons.Default.Schedule else Icons.Default.Check,
+                                        contentDescription = if (chat.isPending) "Enviando" else "Enviado",
+                                        modifier = Modifier.size(12.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
                         }
                     }
 

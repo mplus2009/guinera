@@ -2,8 +2,8 @@ with open('app/src/main/java/com/example/data/AppRepository.kt', 'r') as f:
     content = f.read()
 
 content = content.replace(
-    """if (apiKey.isEmpty()) {""",
-    """if (apiKey.isEmpty() || apiKey == "none" || apiKey == "\"none\"") {"""
+    'it.toObject(BusinessMessage::class.java)?.apply { id = it.id }',
+    'it.toObject(BusinessMessage::class.java)?.apply { id = it.id; isPending = snapshot.metadata.hasPendingWrites }'
 )
 
 with open('app/src/main/java/com/example/data/AppRepository.kt', 'w') as f:

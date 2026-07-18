@@ -376,9 +376,14 @@ fun CreateBusinessScreen(
                                 selectedLocation!!.longitude,
                                 logoUri,
                                 null
-                            ) {
+                            ) { id, error ->
                                 isLoading = false
-                                onBack()
+                                if (id != null) {
+                                    android.widget.Toast.makeText(context, "Espacio creado", android.widget.Toast.LENGTH_SHORT).show()
+                                    onBack()
+                                } else {
+                                    android.widget.Toast.makeText(context, "Error: ${error ?: "Error al crear"}", android.widget.Toast.LENGTH_LONG).show()
+                                }
                             }
                         } else if (selectedLocation == null) {
                             android.widget.Toast.makeText(context, "Por favor, selecciona una ubicación en el mapa", android.widget.Toast.LENGTH_SHORT).show()
@@ -617,6 +622,7 @@ fun AddSpaceProductScreen(
     viewModel: AppViewModel,
     onBack: () -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var priceStr by remember { mutableStateOf("") }
@@ -704,9 +710,14 @@ fun AddSpaceProductScreen(
                     val price = priceStr.toDoubleOrNull() ?: 0.0
                     if (name.isNotBlank()) {
                         isUploading = true
-                        viewModel.addSpaceProduct(spaceId, name, description, price, currency, imageUris) {
+                        viewModel.addSpaceProduct(spaceId, name, description, price, currency, imageUris) { success, error ->
                             isUploading = false
-                            onBack()
+                            if (success) {
+                                android.widget.Toast.makeText(context, "Producto añadido", android.widget.Toast.LENGTH_SHORT).show()
+                                onBack()
+                            } else {
+                                android.widget.Toast.makeText(context, "Error: ${error}", android.widget.Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 },
@@ -929,9 +940,14 @@ fun EditBusinessScreen(
                 Button(
                     onClick = {
                         isLoading = true
-                        viewModel.updateBusinessSpace(space, logoUri, bannerUri) {
+                        viewModel.updateBusinessSpace(space, logoUri, bannerUri) { success, error ->
                             isLoading = false
-                            onBack()
+                            if (success) {
+                                android.widget.Toast.makeText(context, "Espacio actualizado", android.widget.Toast.LENGTH_SHORT).show()
+                                onBack()
+                            } else {
+                                android.widget.Toast.makeText(context, "Error: ${error ?: "No se pudo subir la imagen"}", android.widget.Toast.LENGTH_LONG).show()
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),

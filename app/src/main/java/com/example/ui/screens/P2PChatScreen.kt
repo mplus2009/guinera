@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.VerifiedUser
@@ -907,12 +909,25 @@ fun MessageBubble(
         // Timestamp text
         val sdf = SimpleDateFormat("hh:mm a", Locale.getDefault())
         val dateString = sdf.format(Date(msg.timestamp))
-        Text(
-            text = dateString,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.outline,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-        )
+        ) {
+            Text(
+                text = dateString,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
+            )
+            if (isOutgoing) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = if (msg.isPending) Icons.Default.Schedule else Icons.Default.Check,
+                    contentDescription = if (msg.isPending) "Enviando" else "Enviado",
+                    modifier = Modifier.size(12.dp),
+                    tint = MaterialTheme.colorScheme.outline
+                )
+            }
+        }
     }
 }
 

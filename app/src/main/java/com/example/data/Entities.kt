@@ -27,7 +27,8 @@ data class Product(
     var ratings: Map<String, Float> = emptyMap(),
     var logoUri: String = "",
     var bannerUri: String = "",
-    var timestamp: Long = System.currentTimeMillis()
+    var timestamp: Long = System.currentTimeMillis(),
+    var isPending: Boolean = false
 ) {
     fun getAverageRating(): Float {
         return if (ratings.isEmpty()) 0f else ratings.values.average().toFloat()
@@ -44,7 +45,8 @@ data class ChatMessage(
     var reactions: Map<String, String> = emptyMap(),
     var logoUri: String = "",
     var bannerUri: String = "",
-    var timestamp: Long = System.currentTimeMillis()
+    var timestamp: Long = System.currentTimeMillis(),
+    var isPending: Boolean = false
 )
 
 // Room database for Shopping Cart
@@ -77,7 +79,8 @@ data class AppNotification(
     var isActive: Boolean = true,
     var logoUri: String = "",
     var bannerUri: String = "",
-    var timestamp: Long = System.currentTimeMillis()
+    var timestamp: Long = System.currentTimeMillis(),
+    var isPending: Boolean = false
 )
 
 data class AppSurvey(
@@ -89,7 +92,8 @@ data class AppSurvey(
     var isActive: Boolean = true,
     var logoUri: String = "",
     var bannerUri: String = "",
-    var timestamp: Long = System.currentTimeMillis()
+    var timestamp: Long = System.currentTimeMillis(),
+    var isPending: Boolean = false
 )
 
 @Entity(tableName = "p2p_contacts")
@@ -109,7 +113,8 @@ data class P2PMessage(
     val type: String, // "text", "audio", "photo", "video", "call"
     val mediaUri: String = "",
     val duration: Int = 0, // for call duration or audio message duration
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val isPending: Boolean = false
 )
 
 data class BusinessSpace(
@@ -122,7 +127,8 @@ data class BusinessSpace(
     var longitude: Double = 0.0,
     var logoUri: String = "",
     var bannerUri: String = "",
-    var timestamp: Long = System.currentTimeMillis()
+    var timestamp: Long = System.currentTimeMillis(),
+    var isPending: Boolean = false
 )
 
 data class SpaceProduct(
@@ -135,7 +141,8 @@ data class SpaceProduct(
     var imageUrls: List<String> = emptyList(),
     var logoUri: String = "",
     var bannerUri: String = "",
-    var timestamp: Long = System.currentTimeMillis()
+    var timestamp: Long = System.currentTimeMillis(),
+    var isPending: Boolean = false
 )
 
 data class BusinessChat(
@@ -158,5 +165,6 @@ data class BusinessMessage(
     var imageUrl: String = "",
     var audioUrl: String = "",
     var attachedProductId: String = "",
-    var timestamp: Long = System.currentTimeMillis()
+    var timestamp: Long = System.currentTimeMillis(),
+    var isPending: Boolean = false
 )

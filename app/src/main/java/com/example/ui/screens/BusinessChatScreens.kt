@@ -14,6 +14,8 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Inventory
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +27,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.example.data.BusinessChat
 import com.example.data.BusinessMessage
 import com.example.data.SpaceProduct
@@ -104,8 +110,24 @@ fun BusinessChatDetailScreen(
     
     var messageText by remember { mutableStateOf("") }
     val currentUserId = viewModel.currentUserId
+    val context = LocalContext.current
     var showAttachDialog by remember { mutableStateOf(false) }
     var showCatalogDialog by remember { mutableStateOf(false) }
+    var isUploadingImage by remember { mutableStateOf(false) }
+    
+    val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null && chat != null) {
+            isUploadingImage = true
+            viewModel.sendBusinessImageMessage(chat!!, uri) { success, error ->
+                isUploadingImage = false
+                if (success) {
+                    // Success is silent for messages, user sees it in chat
+                } else {
+                    android.widget.Toast.makeText(context, "Error: $error", android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
     
     val otherName = if (chat?.ownerId == currentUserId) chat?.clientName else chat?.spaceName
     
@@ -147,7 +169,9 @@ fun BusinessChatDetailScreen(
                         maxLines = 4
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    if (messageText.isNotBlank()) {
+                    if (isUploadingImage) {
+                        CircularProgressIndicator(modifier = Modifier.size(48.dp), color = MaterialTheme.colorScheme.primary)
+                    } else if (messageText.isNotBlank()) {
                         FloatingActionButton(
                             onClick = {
                                 chat?.let {
@@ -198,7 +222,10 @@ fun BusinessChatDetailScreen(
                 ListItem(
                     headlineContent = { Text("Fotos y Videos") },
                     leadingContent = { Icon(Icons.Filled.CameraAlt, contentDescription = null) },
-                    modifier = Modifier.clickable { showAttachDialog = false /* TODO */ }
+                    modifier = Modifier.clickable { 
+                        showAttachDialog = false
+                        imagePickerLauncher.launch("image/*") 
+                    }
                 )
                 ListItem(
                     headlineContent = { Text("Adjuntar producto del catálogo") },
@@ -265,13 +292,35 @@ fun MessageBubble(message: BusinessMessage, isMe: Boolean, spaceProducts: List<S
                         }
                     }
                 }
+                if (message.imageUrl.isNotBlank()) {
+                    AsyncImage(
+                        model = message.imageUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxWidth().height(150.dp).padding(top = 8.dp).clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
                 val timeStr = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(message.timestamp))
-                Text(
-                    text = timeStr,
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.align(Alignment.End).padding(top = 4.dp),
-                    color = if (isMe) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.align(Alignment.End).padding(top = 4.dp)
+                ) {
+                    Text(
+                        text = timeStr,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isMe) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                    if (isMe) {
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = if (message.isPending) Icons.Default.Schedule else Icons.Default.Check,
+                            contentDescription = if (message.isPending) "Enviando" else "Enviado",
+                            modifier = Modifier.size(12.dp),
+                            tint = if (message.isPending) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f) else androidx.compose.ui.graphics.Color(0xFF2196F3)
+                        )
+                    }
+                }
             }
         }
     }

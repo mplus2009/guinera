@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -14,6 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Person
@@ -41,6 +46,9 @@ import kotlinx.coroutines.launch
 import com.example.ui.screens.doRealGoogleSignIn
 import com.example.ui.AppViewModel
 import com.example.ui.screens.FirebaseUserResult
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun LoginScreen(
@@ -61,6 +69,30 @@ fun LoginScreen(
     var loginUID by remember { mutableStateOf("") }
     var showAnonUidDialog by remember { mutableStateOf(false) }
     var anonUID by remember { mutableStateOf("") }
+
+    
+    // Profile registration states
+    var firstNameInput by remember { mutableStateOf("") }
+    var lastNameInput by remember { mutableStateOf("") }
+    var selectedPhotoUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedDefaultAvatarIndex by remember { mutableStateOf(0) }
+    var isRegisteringUser by remember { mutableStateOf(false) }
+
+    val defaultAvatars = listOf(
+        "https://api.dicebear.com/7.x/avataaars/png?seed=Felix&mouth=smile",
+        "https://api.dicebear.com/7.x/avataaars/png?seed=Aneka&mouth=smile",
+        "https://api.dicebear.com/7.x/avataaars/png?seed=Jack&mouth=smile",
+        "https://api.dicebear.com/7.x/avataaars/png?seed=Mia&mouth=smile",
+        "https://api.dicebear.com/7.x/avataaars/png?seed=Oliver&mouth=smile"
+    )
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            selectedPhotoUri = uri
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -132,128 +164,128 @@ fun LoginScreen(
                     modifier = Modifier.padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "Elige cómo unirte",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    Text(
-                        text = "Iniciar con Google te da acceso completo a publicar productos, encuestas y comentarios.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                    
-                    Spacer(modifier = Modifier.height(24.dp))
 
-                    // Google Sign-In Button
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .clip(RoundedCornerShape(25.dp))
-                            .clickable {
-                                scope.launch {
-                                    try {
-                                        val result = doRealGoogleSignIn(context)
-                                        if (result != null) {
-                                            viewModel.loginWithGoogle(
-                                                displayName = result.displayName,
-                                                email = result.email,
-                                                avatarUrl = result.avatarUrl,
-                                                uID = result.uid,
-                                                context = context
-                                            )
-                                            onLoginSuccess()
+                        Text(
+                            text = "Elige cómo unirte",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Text(
+                            text = "Iniciar con Google te da acceso completo a publicar productos, encuestas y comentarios.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                        
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Google Sign-In Button
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .clip(RoundedCornerShape(25.dp))
+                                .clickable {
+                                    scope.launch {
+                                        try {
+                                            val result = doRealGoogleSignIn(context)
+                                            if (result != null) {
+                                                viewModel.loginWithGoogle(
+                                                    displayName = result.displayName,
+                                                    email = result.email,
+                                                    avatarUrl = result.avatarUrl,
+                                                    uID = result.uid,
+                                                    context = context
+                                                )
+                                                onLoginSuccess()
+                                            }
+                                        } catch (e: Exception) {
+                                            android.widget.Toast.makeText(context, "Error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
                                         }
-                                    } catch (e: Exception) {
-                                        android.widget.Toast.makeText(context, "Error: ${e.message}", android.widget.Toast.LENGTH_LONG).show()
                                     }
-                                }
-                            },
-                        color = Color.White,
-                        border = BorderStroke(1.dp, Color(0xFFE0E0E0))
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxSize()
+                                },
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Color(0xFFE0E0E0))
                         ) {
-                            // High-quality Custom SVG/Vector-like Google 'G' Icon built with shapes and custom color text
-                            Text(
-                                text = "G",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Black,
-                                color = Color(0xFF4285F4),
-                                modifier = Modifier.padding(end = 12.dp)
-                            )
-                            Text(
-                                text = "Iniciar sesión con Google",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF757575)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Text(
+                                    text = "G",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF4285F4),
+                                    modifier = Modifier.padding(end = 12.dp)
+                                )
+                                Text(
+                                    text = "Iniciar sesión con Google",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF757575)
+                                )
+                            }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                    // Anonymous Sign-In Button
-                    OutlinedButton(
-                        onClick = {
-                            val newAnonUID = "anon_${java.util.UUID.randomUUID().toString().take(4)}"
-                            viewModel.loginAnonymously(newAnonUID, context)
-                            onLoginSuccess()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
-                        shape = RoundedCornerShape(25.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
-                    ) {
+                        // Anonymous Sign-In Button
+                        OutlinedButton(
+                            onClick = {
+                                val newAnonUID = "anon_${java.util.UUID.randomUUID().toString().take(4)}"
+                                viewModel.loginAnonymously(newAnonUID, context)
+                                onLoginSuccess()
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = RoundedCornerShape(25.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Person,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Entrar de forma anónima",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Filled.Person,
+                                imageVector = Icons.Filled.Warning,
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp)
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(14.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Entrar de forma anónima",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                text = "Acceso anónimo restringido",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
-                    }
-                    
-                    Spacer(modifier = Modifier.height(12.dp))
-                    
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Warning,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Acceso anónimo restringido",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
                 }
             }
 

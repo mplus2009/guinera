@@ -2,24 +2,74 @@ package com.example.data
 
 import android.net.Uri
 import com.google.firebase.firestore.FirebaseFirestore
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import com.example.BuildConfig
+import android.util.Base64
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
-class AppRepository(private val appDao: AppDao) {
+class AppRepository(private val appDao: AppDao, private val context: android.content.Context) {
     private val firestore: FirebaseFirestore? = try { FirebaseFirestore.getInstance() } catch (e: Exception) { null }
     private val storage: FirebaseStorage? = try { FirebaseStorage.getInstance() } catch (e: Exception) { null }
 
-    suspend fun uploadImage(uri: Uri): String? {
-        if (storage == null) return null
-        return try {
-            val ref = storage.reference.child("images/${java.util.UUID.randomUUID()}")
-            ref.putFile(uri).await()
-            ref.downloadUrl.await().toString()
-        } catch (e: Exception) {
-            null
+    private val client = OkHttpClient()
+
+    suspend fun uploadImage(uri: Uri): String? = kotlinx.coroutines.Dispatchers.IO.let {
+        return kotlinx.coroutines.withContext(it) {
+            try {
+                // Read bytes from URI
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val bytes = inputStream?.readBytes()
+                inputStream?.close()
+
+                if (bytes == null) {
+                    android.util.Log.e("ImgBB", "Could not read bytes from URI")
+                    return@withContext null
+                }
+
+                // Check for API key
+                val apiKey = try { BuildConfig.IMGBB_API_KEY } catch (e: Exception) { "" }
+                if (apiKey.isEmpty() || apiKey == "none" || apiKey == "\"none\"") {
+                    android.util.Log.e("ImgBB", "IMGBB_API_KEY no está configurada en los Secrets.")
+                    return@withContext null
+                }
+
+                // Convert to Base64
+                val base64Image = Base64.encodeToString(bytes, Base64.DEFAULT)
+
+                // Build Request
+                val requestBody = MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("key", apiKey)
+                    .addFormDataPart("image", base64Image)
+                    .build()
+
+                val request = Request.Builder()
+                    .url("https://api.imgbb.com/1/upload")
+                    .post(requestBody)
+                    .build()
+
+                val response = client.newCall(request).execute()
+                val responseBody = response.body?.string()
+
+                if (response.isSuccessful && responseBody != null) {
+                    val json = JSONObject(responseBody)
+                    if (json.optBoolean("success", false)) {
+                        return@withContext json.getJSONObject("data").getString("url")
+                    }
+                }
+                android.util.Log.e("ImgBB", "Upload failed: $responseBody")
+                null
+            } catch (e: Exception) {
+                android.util.Log.e("ImgBB", "Exception during upload", e)
+                null
+            }
         }
     }
 
@@ -144,7 +194,7 @@ class AppRepository(private val appDao: AppDao) {
                     return@addSnapshotListener
                 }
                 val chats = snapshot?.documents?.mapNotNull { doc ->
-                    doc.toObject(ChatMessage::class.java)?.apply { id = doc.id }
+                    doc.toObject(ChatMessage::class.java)?.apply { id = doc.id; isPending = doc.metadata.hasPendingWrites() }
                 }?.sortedBy { it.timestamp } ?: emptyList()
                 trySend(chats)
             }
@@ -304,7 +354,7 @@ class AppRepository(private val appDao: AppDao) {
         val listener = firestore.collection("business_chats").document(chatId).collection("messages")
             .orderBy("timestamp")
             .addSnapshotListener { snapshot, _ ->
-                val msgs = snapshot?.documents?.mapNotNull { it.toObject(BusinessMessage::class.java)?.apply { id = it.id } } ?: emptyList()
+                val msgs = snapshot?.documents?.mapNotNull { it.toObject(BusinessMessage::class.java)?.apply { id = it.id; isPending = it.metadata.hasPendingWrites() } } ?: emptyList()
                 trySend(msgs)
             }
         awaitClose { listener.remove() }
