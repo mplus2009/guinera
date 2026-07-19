@@ -34,9 +34,10 @@ class AppRepository(private val appDao: AppDao, private val context: android.con
                 }
 
                 // Check for API key
-                val apiKey = try { BuildConfig.IMGBB_API_KEY } catch (e: Exception) { "" }
-                if (apiKey.isEmpty() || apiKey == "none" || apiKey == "\"none\"") {
-                    android.util.Log.e("ImgBB", "IMGBB_API_KEY no está configurada en los Secrets.")
+                // INYECTADO DIRECTAMENTE EN EL CÓDIGO
+                val apiKey = "48d2204b8ac85d4a6e3b956e8d597843"
+                if (apiKey.isEmpty()) {
+                    android.util.Log.e("ImgBB", "API Key de ImgBB no configurada en el código.")
                     return@withContext null
                 }
 

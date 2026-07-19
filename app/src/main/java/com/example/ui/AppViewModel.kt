@@ -180,7 +180,7 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
         viewModelScope.launch {
             val additionalImageUrls = newImageUris.mapNotNull { repository.uploadImage(it) }
             if (newImageUris.isNotEmpty() && additionalImageUrls.isEmpty()) {
-                onComplete(false, "No se pudieron subir las imágenes. Falta el API Key de ImgBB en Secrets.")
+                onComplete(false, "No se pudieron subir las imágenes. Falta el API Key de ImgBB en el código.")
                 return@launch
             }
             val updatedProduct = product.copy(imageUrls = product.imageUrls + additionalImageUrls)
@@ -209,7 +209,7 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
         viewModelScope.launch {
             val imageUrls = imageUris.mapNotNull { repository.uploadImage(it) }
             if (imageUris.isNotEmpty() && imageUrls.isEmpty()) {
-                onComplete(false, "No se pudieron subir las imágenes. Falta el API Key de ImgBB en Secrets.")
+                onComplete(false, "No se pudieron subir las imágenes. Falta el API Key de ImgBB en el código.")
                 return@launch
             }
             repository.addSpaceProduct(
@@ -234,7 +234,7 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
         viewModelScope.launch {
             val uploadedUrl = imageUri?.let { repository.uploadImage(it) }
             if (imageUri != null && uploadedUrl == null) {
-                onComplete(false, "No se pudo subir la imagen. Falta el API Key de ImgBB en Secrets.")
+                onComplete(false, "No se pudo subir la imagen. Falta el API Key de ImgBB en el código.")
                 return@launch
             }
             
@@ -547,7 +547,7 @@ class AppViewModel(private val repository: AppRepository, val userId: String, in
         viewModelScope.launch {
             val uploadedUrl = repository.uploadImage(imageUri)
             if (uploadedUrl == null) {
-                onComplete(false, "No se pudo subir la imagen. Falta el API Key de ImgBB en Secrets.")
+                onComplete(false, "No se pudo subir la imagen. Falta el API Key de ImgBB en el código.")
                 return@launch
             }
             sendBusinessMessageExisting(chat, "", imageUrl = uploadedUrl)
